@@ -1,0 +1,131 @@
+---
+title: "Practical Machine Learning - Course Project"
+author: "Yannis Moros"
+date: "July 10, 2017"
+output: html_document
+---
+
+
+## Introduction
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. 
+
+The goal of this project is to predict the manner in which they performed the exercise, using 
+the other variables in the dataset. We will train a machine learning model and then 
+use it to predict 20 test cases.
+
+## R Setup
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+
+```{r pack}
+require(caret)
+require(rattle)
+require(rpart.plot)
+```
+
+## Download and read data
+
+```{r read}
+if(!file.exists("./data")) {
+        dir.create("./data")
+        url1 <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+        url2 <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+        file_dest1 <- "./data/pml-training.csv"
+        file_dest2 <- "./data/pml-testing.csv"
+        
+        download.file(url1, file_dest1)
+        download.file(url2, file_dest2)
+}
+
+train_raw <- read.csv("./data/pml-training.csv")
+test_raw <- read.csv("./data/pml-testing.csv")
+```
+
+## Data preprocessing
+
+The first step will be to reduce the raw dataset. We will remove the following:
+
+* Variables used for identification purposes
+* Variables that consist of more than 90% missing values
+* Variables with near zero variation (very few unique values)
+
+```{r clean}
+# Remove id variables
+TR <- train_raw[, -c(1:5)]
+
+# Remove variables that are more than 90% missing values
+nas <- sapply(TR, function(x) mean(is.na(x))) > 0.9
+TR <- TR[, nas == 0]
+
+# Remove variables with almost zero variation (very few unique values)
+TR <- TR[, - nearZeroVar(TR)]
+```
+
+We would like to have a cross-validation dataset on which we can assess the 
+performance of the model, before predicting the 20 test cases. To achieve that
+we split the training set as 80% training / 20% validation. 
+
+```{r split}
+inTrain <- createDataPartition(TR$classe, p = 0.8, list = F)
+TR <- TR[inTrain, ]
+VLD <- TR[-inTrain, ]
+```
+
+Now we are ready to try fitting different models.
+
+##Model 1 - Simple Classification Tree
+
+We will first try a very simple classification tree model.
+
+```{r tree, cache=TRUE}
+set.seed(666)
+
+# Train the classification tree on the training set
+mdl_tree <- train(classe ~ ., method = "rpart", data = TR)
+
+# Create a plot
+fancyRpartPlot(mdl_tree$finalModel)
+
+# Predict the type of exercise on the validation set
+pred_tree <- predict(mdl_tree, VLD)
+
+# View the performance of the model and assess the accuracy / out-of-sample error.
+confusionMatrix(VLD$classe, pred_tree)
+```
+
+With just 49% accuracy, or 51% expected out-of-sample error, this simple model
+is not good enough to predict the test cases.
+
+##Model 2 - Random Forest
+
+Now we will try fitting a simple Random Forest model.
+
+```{r forest, cache=TRUE}
+set.seed(13)
+# Train the model on the training set
+mdl_for <- train(classe ~ ., method = "rf", data = TR)
+
+# View the final model
+print(mdl_for)
+
+# Predict on the validation set
+pred_for <- predict(mdl_for, VLD)
+
+# Assess the performance and view the confusion matrix
+confusionMatrix(VLD$classe, pred_for)
+```
+
+The accuracy of this random forest model is actually 100% (0 out-of-sample error), 
+as it predicted correctly every single exercise in the validation test.
+
+This hints to overfitting, but we will still use this to predict the type of 
+exercise in the 20 test cases.
+
+```{r pred}
+pred_quiz <- predict(mdl_for, test_raw)
+pred_quiz
+```
