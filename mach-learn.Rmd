@@ -2,9 +2,14 @@
 title: "Practical Machine Learning - Course Project"
 author: "Yannis Moros"
 date: "July 10, 2017"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
+I have been unable to get GitHub to compile my .html file. Please use this .pdf
+to grade the project instead. The "raw" .html is still in this repo and you can feel free
+to compile it using your prefered method, if you wish to. Thanks!
 
 ## Introduction
 
